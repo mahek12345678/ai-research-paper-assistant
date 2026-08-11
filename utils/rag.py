@@ -1,18 +1,20 @@
-from sentence_transformers import SentenceTransformer
+from chromadb.utils import embedding_functions
 import chromadb
 from chromadb import PersistentClient
 from groq import Groq
+import os
 import re
 
 # --- Embeddings ---
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-
+embedding_model = embedding_functions.ONNXMiniLM_L6_V2()
 def embed_texts(texts: list[str]):
-    return embedding_model.encode(texts).tolist()
-
+    return embedding_model(texts)
 # --- ChromaDB setup ---
 chroma_client = PersistentClient(path="chroma_db")
 collection = chroma_client.get_or_create_collection("research_papers")
+
+# --- Groq client (created once, reused across requests) ---
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # --- format_chunks_for_prompt (exact, verified this session) ---
 def format_chunks_for_prompt(query_results):
@@ -53,13 +55,9 @@ Answer:"""
 
 # --- generate_answer (exact, verified this session) ---
 def generate_answer(question: str, chunks: list[dict]) -> str:
-    import os
-    api_key = os.getenv("GROQ_API_KEY")
-    client = Groq(api_key=api_key)
-
     prompt = build_prompt(question, chunks)
 
-    response = client.chat.completions.create(
+    response = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "user", "content": prompt}
@@ -91,9 +89,9 @@ def store_chunks(paper_id: str, filename: str, chunks: list[str]):
         metadatas=metadatas
     )
 
-def query_chunks(question: str, n_results: int = 8, paper_id: str = None):
+def query_chunks(question: str, n_results: int = 4, paper_id: str = None):
     query_embedding = embed_texts([question])
-    
+
     if paper_id:
         results = collection.query(
             query_embeddings=query_embedding,

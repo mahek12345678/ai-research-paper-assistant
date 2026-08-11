@@ -3,6 +3,7 @@ uvicorn[standard]
 python-dotenv
 python-multipart
 PyMuPDF
-sentence-transformers
 chromadb
 groq
+fastapi==0.141.1
+uvicorn==0.52.1
