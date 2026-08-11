@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Research Paper Assistant</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #000;
+    color: #ececec;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    padding: 18px 20px 12px;
+    border-bottom: 1px solid #222;
+    text-align: center;
+  }
+  h1 { font-size: 16px; margin: 0 0 2px; font-weight: 600; }
+  .sub { color: #888; font-size: 12px; }
+  #upload-status {
+    font-size: 12px;
+    color: #7dd88f;
+    margin-top: 6px;
+    min-height: 14px;
+  }
+
+  /* ---------- chat area ---------- */
+  #chat-wrap {
+    flex: 1;
+    overflow-y: auto;
+  }
+  #chat {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .msg {
+    line-height: 1.6;
+    font-size: 15px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .msg.user {
+    align-self: flex-end;
+    width: fit-content;
+    max-width: 85%;
+    background: #1f1f1f;
+    color: #ffffff;
+    padding: 10px 16px;
+    border-radius: 18px;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.bot {
+    color: #d8d8d8;
+  }
+  /* ---------- typing indicator ---------- */
+  .typing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .typing span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #999;
+    animation: typing-bounce 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* ---------- input area ---------- */
+  #input-bar {
+    border-top: 1px solid #222;
+    padding: 14px 20px 20px;
+  }
+  #input-row {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #151515;
+    border: 1px solid #2a2a2a;
+    border-radius: 26px;
+    padding: 6px 8px 6px 8px;
+  }
+
+  /* plus / upload button */
+  #upload-btn {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    color: #000;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  #upload-btn:hover { background: #e2e2e2; }
+  #pdf-input { display: none; }
+
+  #question {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ececec;
+    font-size: 15px;
+    padding: 8px 4px;
+  }
+  #question::placeholder { color: #6f6f6f; }
+
+  #send-btn {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  #send-btn:disabled { background: #444; color: #999; cursor: not-allowed; }
+  #send-btn:hover:not(:disabled) { background: #e2e2e2; }
+  #send-btn svg { width: 16px; height: 16px; }
+
+  /* thin scrollbar to match dark theme */
+  #chat-wrap::-webkit-scrollbar { width: 8px; }
+  #chat-wrap::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 8px; }
+  #chat-wrap::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>Research Paper Assistant</h1>
+    <div class="sub">Upload a paper, then ask questions about it.</div>
+    <div id="upload-status"></div>
+  </header>
+
+  <div id="chat-wrap">
+    <div id="chat"></div>
+  </div>
+
+  <div id="input-bar">
+    <div id="input-row">
+      <button id="upload-btn" onclick="document.getElementById('pdf-input').click()" title="Upload PDF">+</button>
+      <input type="file" id="pdf-input" accept="application/pdf" onchange="uploadPDF()">
+      <input type="text" id="question" placeholder="Ask something about the paper...">
+      <button id="send-btn" onclick="askQuestion()" title="Send">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 19V5M12 5L5 12M12 5L19 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+<script>
+  // Relative base — always resolves against whatever origin served this page
+  // (fixes the localhost vs 127.0.0.1 CORS mismatch). If you later deploy
+  // the frontend and backend on different origins, set this back to an
+  // absolute URL and configure CORS on the backend instead.
+  const API_BASE = "";
+
+  const chat = document.getElementById("chat");
+  const chatWrap = document.getElementById("chat-wrap");
+  const uploadStatus = document.getElementById("upload-status");
+
+  function addMessage(text, sender) {
+    const div = document.createElement("div");
+    div.className = "msg " + sender;
+    div.textContent = text;
+    chat.appendChild(div);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+  }
+
+  function showTyping() {
+    const div = document.createElement("div");
+    div.className = "typing";
+    div.id = "typing-indicator";
+    div.innerHTML = "<span></span><span></span><span></span>";
+    chat.appendChild(div);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+  }
+
+  function hideTyping() {
+    const el = document.getElementById("typing-indicator");
+    if (el) el.remove();
+  }
+
+  async function uploadPDF() {
+    const fileInput = document.getElementById("pdf-input");
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    uploadStatus.textContent = "Uploading & processing...";
+    try {
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) {
+        throw new Error(`Server responded ${res.status}`);
+      }
+      const data = await res.json();
+      uploadStatus.textContent = `Done: ${data.chunks_stored} chunks stored.`;
+      addMessage(`Uploaded "${data.filename}" — ready for questions.`, "bot");
+    } catch (err) {
+      uploadStatus.textContent = "Upload failed.";
+      console.error(err);
+    } finally {
+      fileInput.value = "";
+    }
+  }
+
+  async function askQuestion() {
+    const input = document.getElementById("question");
+    const question = input.value.trim();
+    if (!question) return;
+
+    addMessage(question, "user");
+    input.value = "";
+    showTyping();
+
+    try {
+      const res = await fetch(`${API_BASE}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question })
+      });
+      if (!res.ok) {
+        throw new Error(`Server responded ${res.status}`);
+      }
+      const data = await res.json();
+      hideTyping();
+      addMessage(data.answer, "bot");
+    } catch (err) {
+      hideTyping();
+      addMessage("Something went wrong — check the backend.", "bot");
+      console.error(err);
+    }
+  }
+
+  document.getElementById("question").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") askQuestion();
+  });
+</script>
+</body>
+</html>
