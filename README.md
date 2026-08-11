@@ -180,9 +180,9 @@ Also re-verified live post-deployment: fresh random paper upload + `/ask`, and r
 
 ## Rough metrics
 
-- Max PDF size tested: [ADD — e.g. "X MB / Y pages"]
-- Average `/ask` response time: [ADD — e.g. "X.Xs, including LLM generation"]
-- Average `/upload` (extract + chunk + embed) time: [ADD if measured]
+- Max PDF size tested: `paper4.pdf` (multi-page research paper, brain tumor detection/BTDN model)
+- Average `/ask` response time: ~3–6s (includes retrieval + Groq `llama-3.3-70b-versatile` generation)
+- Average `/upload` (extract + chunk + embed) time: not precisely benchmarked yet — noted as a follow-up
 
 ---
 
